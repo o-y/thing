@@ -1,0 +1,58 @@
+load("@aspect_bazel_lib//lib:copy_to_bin.bzl", "copy_to_bin")
+load("@aspect_rules_js//js:defs.bzl", "js_run_devserver", "js_run_binary", "js_binary")
+load("@npm//:defs.bzl", "npm_link_all_packages")
+load("@npm//:vite/package_json.bzl", vite_bin = "bin")
+
+# This macro expands to a link_npm_package for each third-party package in package.json
+npm_link_all_packages(name = "node_modules")
+
+CONFIGS = [
+    "vite.config.ts",
+    "package.json",
+    "tsconfig.json",
+    "tsconfig.node.json",
+    "index.html",
+]
+
+BUILD_DEPS = [":node_modules/" + d for d in [
+    "@vitejs/plugin-react-swc",
+    "vite",
+    "@testing-library/dom",
+    "@testing-library/jest-dom",
+    "@testing-library/user-event",
+    "@testing-library/react",
+    "jsdom",
+    "react",
+    "react-dom",
+]]
+
+copy_to_bin(
+    name = "vite_srcs_export",
+    srcs = glob([
+        "src/**/*.css",
+        "src/**/*.svg",
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "utils/**/*.ts",
+        "utils/**/*.tsx",
+        "public/**/*.json",
+        "public/**/*.svg",
+    ]),
+)
+
+vite_bin.vite(
+    name = "prod",
+    srcs = BUILD_DEPS + CONFIGS + [":vite_srcs_export"],
+    args = ["build --config vite.config.ts"],
+    chdir = package_name(),
+    out_dirs = ["dist"],
+    visibility = ["//visibility:public"],
+)
+
+vite_bin.vite_binary(
+    name = "dev",
+    chdir = package_name(),
+    args = ["dev --config vite.config.ts"],
+    data = CONFIGS + BUILD_DEPS + [":vite_srcs_export"],
+    visibility = ["//visibility:public"],
+)
